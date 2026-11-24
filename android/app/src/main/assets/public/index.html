@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Galgenmännchen</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1b1f27;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+    --border: #e2e6ec;
+    --wrong: #dc2626;
+    --correct: #16a34a;
+    --key-bg: #eef1f6;
+    --key-used-correct: #bbf7d0;
+    --key-used-wrong: #fecaca;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12141a;
+      --card: #1c1f28;
+      --text: #f1f3f6;
+      --muted: #9aa1ac;
+      --accent: #3b82f6;
+      --accent-text: #ffffff;
+      --border: #2b303c;
+      --wrong: #f87171;
+      --correct: #4ade80;
+      --key-bg: #262b36;
+      --key-used-correct: #14532d;
+      --key-used-wrong: #7f1d1d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12141a;
+    --card: #1c1f28;
+    --text: #f1f3f6;
+    --muted: #9aa1ac;
+    --accent: #3b82f6;
+    --accent-text: #ffffff;
+    --border: #2b303c;
+    --wrong: #f87171;
+    --correct: #4ade80;
+    --key-bg: #262b36;
+    --key-used-correct: #14532d;
+    --key-used-wrong: #7f1d1d;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  .app {
+    width: 100%;
+    max-width: 480px;
+    padding: 16px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0;
+  }
+  .scorebox {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .scorebox .num {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px;
+  }
+  .gallows-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 0;
+  }
+  svg#gallows { width: 160px; height: 160px; }
+  .fails {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: -4px;
+  }
+  .word {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 4px 4px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .word .slot {
+    min-width: 22px;
+    text-align: center;
+    border-bottom: 3px solid var(--border);
+    padding-bottom: 2px;
+  }
+  .word .slot.filled { border-bottom-color: var(--correct); }
+  .status {
+    text-align: center;
+    min-height: 24px;
+    font-weight: 600;
+  }
+  .status.win { color: var(--correct); }
+  .status.lose { color: var(--wrong); }
+  .wrong-letters {
+    text-align: center;
+    font-size: 14px;
+    color: var(--wrong);
+    min-height: 18px;
+  }
+  .keyboard {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .key {
+    padding: 10px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--key-bg);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key:active { transform: scale(0.94); }
+  .key.correct { background: var(--key-used-correct); border-color: var(--correct); color: #064e19; }
+  .key.wrong { background: var(--key-used-wrong); border-color: var(--wrong); color: #450a0a; }
+  .key.disabled { opacity: 0.55; pointer-events: none; }
+  .actions {
+    display: flex;
+    gap: 10px;
+  }
+  button.primary {
+    flex: 1;
+    padding: 13px 0;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button.primary:active { opacity: 0.85; }
+  .hint {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .hs-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+  .hs-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 2px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+  }
+  .hs-row:last-child { border-bottom: none; }
+  .hs-row.new { background: var(--key-used-correct); border-radius: 8px; color: #064e19; }
+  .hs-rank { width: 28px; text-align: center; }
+  .hs-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hs-sub { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .hs-points { font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .hs-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 8px 0; }
+  .hs-sync {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .hs-sync.err { color: var(--wrong); }
+  .linkbtn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .linkbtn[hidden] { display: none; }
+  .overlay {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+  }
+  .overlay[hidden] { display: none; }
+  .dialog {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .dialog h2 { margin: 0; font-size: 18px; }
+  .dialog p { margin: 0; color: var(--muted); font-size: 14px; }
+  .dialog input {
+    padding: 12px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    width: 100%;
+  }
+  .dialog .row { display: flex; gap: 10px; }
+  button.secondary {
+    padding: 13px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 15px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🎯 Galgenmännchen</h1>
+    <div class="scorebox">
+      <div>Bestwert<br><span class="num" id="bestScore">–</span></div>
+      <div>Siege<br><span class="num" id="winCount">0</span></div>
+      <div>Spiele<br><span class="num" id="playCount">0</span></div>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="gallows-wrap">
+      <svg id="gallows" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="6" stroke-linecap="round" fill="none">
+        <line x1="20" y1="190" x2="120" y2="190"/>
+        <line id="pole" x1="50" y1="190" x2="50" y2="20"/>
+        <line id="beam" x1="50" y1="20" x2="130" y2="20"/>
+        <line id="rope" x1="130" y1="20" x2="130" y2="45"/>
+        <circle id="head" cx="130" cy="60" r="15"/>
+        <line id="body" x1="130" y1="75" x2="130" y2="120"/>
+        <line id="armL" x1="130" y1="90" x2="110" y2="110"/>
+        <line id="armR" x1="130" y1="90" x2="150" y2="110"/>
+        <line id="legL" x1="130" y1="120" x2="112" y2="150"/>
+        <line id="legR" x1="130" y1="120" x2="148" y2="150"/>
+      </svg>
+    </div>
+    <div class="fails" id="failsText">0 / 7 Fehler</div>
+    <div class="word" id="wordDisplay"></div>
+    <div class="wrong-letters" id="wrongLetters"></div>
+    <div class="status" id="statusText"></div>
+  </div>
+
+  <div class="card">
+    <div class="keyboard" id="keyboard"></div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="newGameBtn">Neues Wort</button>
+  </div>
+  <div class="hint">Errate das Wort, bevor 7 Fehler gemacht wurden.</div>
+
+  <div class="card">
+    <h3 class="hs-title">🏆 Top 5</h3>
+    <div id="hsList"></div>
+    <div class="hs-sync" id="hsSync">
+      <span id="hsSyncText"></span>
+      <button class="linkbtn" id="hsRetry" hidden>Erneut versuchen</button>
+    </div>
+  </div>
+  <div class="hint">Punkte: 100 pro nicht gemachtem Fehler + 10 pro Buchstabe im Wort.</div>
+</div>
+
+<div class="overlay" id="nameOverlay" hidden>
+  <div class="dialog">
+    <h2>🎉 Neuer Highscore!</h2>
+    <p id="nameInfo"></p>
+    <input type="text" id="nameInput" maxlength="12" placeholder="Dein Name" autocomplete="off">
+    <div class="row">
+      <button class="secondary" id="nameSkip">Überspringen</button>
+      <button class="primary" id="nameSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Deutsche Hauptwörter (Umlaute als AE/OE/UE, ß als SS geschrieben)
+  var RAW_WORDS = [
+    // Tiere
+    "ELEFANT","GIRAFFE","KROKODIL","NASHORN","FLUSSPFERD","SCHMETTERLING","EICHHOERNCHEN","IGEL",
+    "FLEDERMAUS","PINGUIN","DELFIN","KAENGURU","SCHILDKROETE","PAPAGEI","SPINNE","LIBELLE",
+    "MARIENKAEFER","REGENWURM","WILDSCHWEIN","HAMSTER","MEERSCHWEINCHEN","KANINCHEN","GORILLA",
+    "SCHIMPANSE","HUMMER","TINTENFISCH","SEEPFERDCHEN","ADLER","FALKE","STORCH","SPERLING","AMSEL",
+    "NACHTIGALL","KUCKUCK","FASAN","TRUTHAHN","ZIEGE","MAULWURF","MURMELTIER","STEINBOCK",
+    "GAMSBOCK","HIRSCH","FUCHS","DACHS","EISBAER","WASCHBAER","KROETE","FROSCH","EIDECHSE",
+    "SCHLANGE","SKORPION","GLUEHWUERMCHEN","GRILLE","HEUSCHRECKE","BIENENSTOCK","HUMMEL","WESPE",
+    "ENTE","HUHN","SCHAF","KALB","FOHLEN","PFERD","ESEL","KATER","WELPE","PAPAGEITAUCHER",
+    // Natur und Wetter
+    "WASSERFALL","GEWITTER","REGENBOGEN","NEBEL","SCHNEEFLOCKE","VULKAN","GLETSCHER","WIESE",
+    "TANNENBAUM","BUCHE","EICHE","BIRKE","LINDE","AHORN","KASTANIE","SONNENBLUME","LOEWENZAHN",
+    "MARGERITE","TULPE","VEILCHEN","HIMMEL","STERNSCHNUPPE","MONDSCHEIN","MORGENROT","DONNER",
+    "BLITZ","HAGEL","STURM","SOMMER","WINTER","FRUEHLING","HERBST","KLIPPE","STRAND","DUENE",
+    "INSEL","HALBINSEL","WUESTE","URWALD","SUMPF","MOOR","QUELLE","FLUSS","GEBIRGE","WALDWEG",
+    "GARTEN","SONNENSCHEIN","SCHNEEFALL","LAWINE","ERDBEBEN","SONNENUNTERGANG","NORDLICHT",
+    "WASSERPFUETZE","SCHNEEMANN","REGENSCHIRM","GUMMISTIEFEL","NIEDERSCHLAG","WINDSTILLE",
+    // Essen und Trinken
+    "SCHOKOLADE","KARTOFFEL","TOMATE","GURKE","ZWIEBEL","KNOBLAUCH","PAPRIKA","KAESE","WURST",
+    "BRATWURST","SCHNITZEL","SPAETZLE","SAUERKRAUT","BREZEL","LEBKUCHEN","MARMELADE","HONIG",
+    "BUTTER","JOGHURT","NUDELN","SPAGHETTI","PFANNKUCHEN","KARTOFFELSALAT","ERDBEERE","HIMBEERE",
+    "BROMBEERE","HEIDELBEERE","KIRSCHE","PFIRSICH","APFELSINE","ZITRONE","BANANE","ANANAS",
+    "TRAUBE","BIRNE","ZWETSCHGE","APRIKOSE","WASSERMELONE","FRUCHTSAFT","LIMONADE","KAFFEE",
+    "BRATKARTOFFEL","FLEISCH","GEMUESE","SUPPE","EINTOPF","SALAT","TORTE","KUCHEN","KEKS",
+    "FONDUE","RACLETTE","ROESTI","BROETCHEN","SEMMEL","MARZIPAN","PUDDING","SAHNETORTE",
+    "KARTOFFELPUFFER","LEBERWURST","SCHINKEN","MUESLI","HAFERFLOCKEN","FRUEHSTUECK","MITTAGESSEN",
+    "ABENDBROT","KOCHTOPF","BRATPFANNE","MESSER","GABEL","TELLER","LOEFFEL","SERVIETTE",
+    // Haus und Wohnen
+    "SCHLAFZIMMER","WOHNZIMMER","BADEWANNE","KUEHLSCHRANK","WASCHMASCHINE","STAUBSAUGER",
+    "TREPPE","FENSTER","GARDINE","TEPPICH","SOFA","SCHRANK","REGAL","SCHREIBTISCH","STUHL",
+    "LAMPE","KERZE","SPIEGEL","BESEN","EIMER","HAMMER","ZANGE","SCHRAUBE","SCHRAUBENZIEHER",
+    "BOHRMASCHINE","SAEGE","WERKZEUG","KELLER","DACHBODEN","BALKON","TERRASSE","GARAGE",
+    "BRIEFKASTEN","HAUSTUER","SCHLUESSEL","STECKDOSE","HEIZUNG","KAMIN","DACHZIEGEL","KUECHE",
+    "KISSEN","DECKE","MATRATZE","WECKER","VORHANG","BUECHERREGAL","GESCHIRRSPUELER","BACKOFEN",
+    // Technik und Computer
+    "COMPUTER","TASTATUR","BILDSCHIRM","NETZWERK","DRUCKER","SOFTWARE","HARDWARE","SERVER",
+    "ROUTER","FESTPLATTE","ARBEITSSPEICHER","PROZESSOR","BETRIEBSSYSTEM","PASSWORT","BROWSER",
+    "LAPTOP","SMARTPHONE","KAMERA","KOPFHOERER","LAUTSPRECHER","MIKROFON","AKKU","LADEGERAET",
+    "PROGRAMM","DATEI","ORDNER","SPEICHER","INTERNET","TASTE","TASTENKOMBINATION","BILDSCHIRMFOTO",
+    "DATENBANK","SICHERUNG","UPDATE","DOWNLOAD","FIREWALL","SCHNITTSTELLE","STECKER","KABEL",
+    "ANTENNE","FERNSEHER","FERNBEDIENUNG","TASCHENRECHNER","DRUCKERPATRONE","MAUSZEIGER",
+    // Fahrzeuge und Verkehr
+    "AUTOMOTOR","WERKSTATT","GETRIEBE","BREMSE","LENKRAD","REIFEN","KUPPLUNG","AUSPUFF","KOLBEN",
+    "ZYLINDER","KUEHLER","SCHEINWERFER","WINDSCHUTZSCHEIBE","STOSSDAEMPFER","FAHRRAD","MOTORRAD",
+    "TRAKTOR","LASTWAGEN","EISENBAHN","STRASSENBAHN","FLUGZEUG","HUBSCHRAUBER","SEGELBOOT",
+    "SCHIFF","FAEHRE","BAHNHOF","FLUGHAFEN","TANKSTELLE","AUTOBAHN","KREISVERKEHR","AMPEL",
+    "FUSSGAENGER","ZEBRASTREIFEN","PARKPLATZ","FAHRSCHULE","FUEHRERSCHEIN","KENNZEICHEN",
+    "ZUGFENSTER","FAHRKARTE","FAHRPLAN","HALTESTELLE","BERGBAHN","SEILBAHN","LOKOMOTIVE",
+    // Sport
+    "FUSSBALL","BASKETBALL","SCHWIMMEN","MARATHON","TURNHALLE","MANNSCHAFT","HANDBALL","VOLLEYBALL",
+    "TENNIS","PADEL","BADMINTON","TISCHTENNIS","SCHIEDSRICHTER","TORWART","STADION","TRAINER",
+    "MEISTERSCHAFT","OLYMPIA","GYMNASTIK","KLETTERN","WANDERN","SKIFAHREN","SNOWBOARD",
+    "SCHLITTSCHUH","EISHOCKEY","TRAININGSPLAN","LAUFBAHN","SPORTPLATZ","TURNVEREIN","SIEGEREHRUNG",
+    "MEDAILLE","POKAL","STAFFEL","SPRINTER","RADRENNEN","BOGENSCHIESSEN","SCHACHBRETT","TURNIER",
+    "AUFWAERMEN","DEHNUEBUNG","KRAFTTRAINING","AUSDAUER","SPORTLER","ZUSCHAUER","ANFEUERUNG",
+    // Berufe und Orte
+    "LEHRER","KRANKENHAUS","APOTHEKE","POLIZEI","FEUERWEHR","BAECKER","METZGER","ELEKTRIKER",
+    "INGENIEUR","ARCHITEKT","MECHANIKER","SCHREINER","MAURER","GAERTNER","BUERGERMEISTER",
+    "GEMEINDE","SCHULHAUS","KINDERGARTEN","UNIVERSITAET","BIBLIOTHEK","MUSEUM","THEATER","KINO",
+    "RESTAURANT","HOTEL","BAECKEREI","SUPERMARKT","POSTAMT","RATHAUS","KIRCHE","SCHLOSS","BURGRUINE",
+    "MARKTPLATZ","SPIELPLATZ","FRIEDHOF","BAUERNHOF","SCHEUNE","MUEHLE","BRUECKE","TUNNEL",
+    "SCHREINEREI","GAERTNEREI","METZGEREI","KRANKENSCHWESTER","TIERARZT","ZAHNARZT","PILOT",
+    "KOCH","KELLNER","VERKAEUFER","BUCHHALTER","PROGRAMMIERER","SYSTEMTECHNIKER","KUNDENDIENST",
+    // Alltag, Gefühle und Feste
+    "FAMILIE","GEBURTSTAG","FERIEN","FREUNDSCHAFT","MUSIK","GITARRE","ABENTEUER","GEHEIMNIS",
+    "ERINNERUNG","FANTASIE","GLUECK","HOFFNUNG","GEDULD","FREIHEIT","GEMEINSCHAFT","GESCHICHTE",
+    "GESCHENK","UEBERRASCHUNG","WEIHNACHTEN","OSTERHASE","FASTNACHT","HOCHZEIT","SPAZIERGANG",
+    "REISEPASS","KOFFER","RUCKSACK","LANDKARTE","KOMPASS","FERNGLAS","ZELT","SCHLAFSACK",
+    "LAGERFEUER","TASCHENLAMPE","GROSSMUTTER","GROSSVATER","SCHWESTER","BRUDER","ENKELKIND",
+    "NACHBAR","FREUNDIN","KLASSENZIMMER","HAUSAUFGABE","SCHULTASCHE","ZEUGNIS","PAUSENBROT",
+    "KINDERWAGEN","SPIELZEUG","BILDERBUCH","MAERCHEN","GUTENACHTGESCHICHTE","FEUERWERK","SILVESTER",
+    "NEUJAHR","OSTERN","PFINGSTEN","ERNTEDANK","LATERNE","ADVENTSKRANZ","WEIHNACHTSBAUM",
+    // Schweiz und Region
+    "FRAUENFELD","THURGAU","ISLIKON","GACHNANG","SCHWEIZ","BODENSEE","MATTERHORN","ALPABZUG",
+    "JODELN","KUHGLOCKE","TASCHENMESSER","KANTON","ZUERICH","WINTERTHUR","SCHAFFHAUSEN","RHEINFALL",
+    "VIERWALDSTAETTERSEE","ENGADIN","TESSIN","BERNINA","SAENTIS","EIGER","MOENCH","JUNGFRAU",
+    // Schule, Wissen, Kunst
+    "MATHEMATIK","PHYSIK","CHEMIE","BIOLOGIE","GEOGRAFIE","SPRACHE","GRAMMATIK","WOERTERBUCH",
+    "BUCHSTABE","SATZZEICHEN","ZEITUNG","ZEITSCHRIFT","ROMAN","GEDICHT","MALEREI","BILDHAUER",
+    "ORCHESTER","KLAVIER","GEIGE","TROMMEL","FLOETE","TROMPETE","SAXOPHON","CHORGESANG","KONZERT",
+    "WISSENSCHAFT","FORSCHUNG","ERFINDUNG","ENTDECKUNG","MIKROSKOP","FERNROHR","TASCHENRECHNER",
+    "SONNENSYSTEM","PLANET","RAUMSCHIFF","ASTRONAUT","GALAXIE","SCHWERKRAFT","ATMOSPHAERE"
+  ];
+
+  // Doppelte entfernen und nur gültige Wörter (A-Z, 5 bis 15 Buchstaben) zulassen
+  var WORDS = RAW_WORDS.filter(function(w, i) {
+    return RAW_WORDS.indexOf(w) === i && /^[A-Z]{5,15}$/.test(w);
+  });
+  var MAX_FAILS = 7;
+  var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  var MAX_SCORES = 5;
+  var word, guessed, fails, over, lastScore, lastWord;
+
+  var audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new Ctx();
+      } catch (e) { audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(function() {});
+    }
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type, delay, volume) {
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    var startAt = ctx.currentTime + (delay || 0);
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, startAt);
+    gain.gain.setValueAtTime(0, startAt);
+    gain.gain.linearRampToValueAtTime(volume || 0.2, startAt + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startAt);
+    osc.stop(startAt + duration + 0.02);
+  }
+
+  function playCorrectSound() {
+    playTone(660, 0.12, 'sine', 0, 0.22);
+    playTone(880, 0.16, 'sine', 0.08, 0.22);
+  }
+  function playWrongSound() {
+    playTone(180, 0.22, 'sawtooth', 0, 0.18);
+    playTone(120, 0.28, 'sawtooth', 0.1, 0.18);
+  }
+  function playWinSound() {
+    [523, 659, 784, 1046].forEach(function(f, i) {
+      playTone(f, 0.22, 'triangle', i * 0.11, 0.22);
+    });
+  }
+  function playLoseSound() {
+    [300, 260, 220, 160].forEach(function(f, i) {
+      playTone(f, 0.3, 'square', i * 0.14, 0.16);
+    });
+  }
+
+  var wordDisplay = document.getElementById('wordDisplay');
+  var wrongLettersEl = document.getElementById('wrongLetters');
+  var statusText = document.getElementById('statusText');
+  var failsText = document.getElementById('failsText');
+  var keyboard = document.getElementById('keyboard');
+  var newGameBtn = document.getElementById('newGameBtn');
+  var bestScoreEl = document.getElementById('bestScore');
+  var winCountEl = document.getElementById('winCount');
+  var playCountEl = document.getElementById('playCount');
+
+  var gallowsParts = ["head","body","armL","armR","legL","legR","rope"];
+  gallowsParts.forEach(function(id) {
+    document.getElementById(id).style.opacity = 0;
+  });
+
+  var hsListEl = document.getElementById('hsList');
+  var nameOverlay = document.getElementById('nameOverlay');
+  var nameInfo = document.getElementById('nameInfo');
+  var nameInput = document.getElementById('nameInput');
+  var nameSave = document.getElementById('nameSave');
+  var nameSkip = document.getElementById('nameSkip');
+
+  function loadStats() {
+    try {
+      var raw = localStorage.getItem('hangman_stats_v1');
+      if (raw) {
+        var s = JSON.parse(raw);
+        return { wins: s.wins || 0, played: s.played || 0 };
+      }
+    } catch (e) {}
+    return { wins: 0, played: 0 };
+  }
+  function saveStats(s) {
+    try { localStorage.setItem('hangman_stats_v1', JSON.stringify(s)); } catch (e) {}
+  }
+  var stats = loadStats();
+
+  function loadScores() {
+    try {
+      var raw = localStorage.getItem('hangman_scores_v1');
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr;
+      }
+    } catch (e) {}
+    return [];
+  }
+  function saveScores(list) {
+    try { localStorage.setItem('hangman_scores_v1', JSON.stringify(list)); } catch (e) {}
+  }
+  var scores = loadScores();
+
+  // ---------- Google Drive: Ordner "Galgenmaennchen", Tabelle "Highscore" ----------
+  var DRIVE = "Google Drive";
+  var SHEETS = "Google Sheets";
+  var FOLDER_NAME = "Galgenmaennchen";
+  var FILE_NAME = "Highscore";
+  var RANGE = "A2:E6"; // Zeile 1 = Kopfzeile, Zeilen 2-6 = Top 5
+
+  var mcp = null;
+  var sheetId = null;
+  var driveReady = false;
+  var saving = false;
+  var pendingSave = false;
+  var syncBox = document.getElementById('hsSync');
+  var syncText = document.getElementById('hsSyncText');
+  var retryBtn = document.getElementById('hsRetry');
+  var retryAction = null;
+
+  function setSync(text, isError, retry) {
+    syncText.textContent = text;
+    syncBox.className = 'hs-sync' + (isError ? ' err' : '');
+    retryAction = retry || null;
+    retryBtn.hidden = !retry;
+  }
+  retryBtn.addEventListener('click', function() {
+    if (retryAction) retryAction();
+  });
+
+  function unwrap(res) {
+    var p = res && res.payload;
+    if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) {} }
+    if (p && p.content && typeof p.content === 'object' && !Array.isArray(p.content)) p = p.content;
+    return p;
+  }
+  function call(server, tool, input) {
+    return mcp.callTool(server, tool, input).then(unwrap);
+  }
+  function findOne(query) {
+    return call(DRIVE, 'search_files', { query: query, excludeContentSnippets: true, pageSize: 5 }).then(function(p) {
+      var files = (p && p.files) || [];
+      return files.length ? files[0] : null;
+    });
+  }
+
+  // Findet die Tabelle im Ordner. Mit create=true werden Ordner und Tabelle bei Bedarf angelegt.
+  function ensureSheet(create) {
+    if (sheetId) return Promise.resolve(sheetId);
+    return findOne("title = '" + FOLDER_NAME + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false")
+      .then(function(folder) {
+        if (folder) return folder;
+        if (!create) return null;
+        return call(DRIVE, 'create_file', { title: FOLDER_NAME, contentMimeType: 'application/vnd.google-apps.folder' });
+      })
+      .then(function(folder) {
+        if (!folder) return null;
+        return findOne("title = '" + FILE_NAME + "' and parentId = '" + folder.id + "' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false")
+          .then(function(file) {
+            if (file) return file;
+            if (!create) return null;
+            return call(DRIVE, 'create_file', {
+              title: FILE_NAME,
+              parentId: folder.id,
+              contentMimeType: 'text/csv',
+              textContent: 'Name,Punkte,Fehler,Wort,Datum\n'
+            });
+          });
+      })
+      .then(function(file) {
+        if (file && file.id) sheetId = file.id;
+        return sheetId;
+      });
+  }
+
+  function rowsToScores(values) {
+    var out = [];
+    (values || []).forEach(function(r) {
+      var pts = Number(r[1]);
+      if (!isFinite(pts) || pts <= 0) return;
+      out.push({
+        name: String(r[0] || 'Anonym').slice(0, 12),
+        points: pts,
+        fails: Number(r[2]) || 0,
+        word: String(r[3] || ''),
+        date: Number(r[4]) || 0
+      });
+    });
+    return out;
+  }
+  function scoresToRows(list) {
+    var rows = list.slice(0, MAX_SCORES).map(function(s) {
+      return [s.name, s.points, s.fails, s.word || '', s.date];
+    });
+    while (rows.length < MAX_SCORES) rows.push(["", "", "", "", ""]);
+    return rows;
+  }
+  function scoreKey(s) { return s.date + '|' + s.name + '|' + s.points; }
+  function sortScores(list) {
+    list.sort(function(a, b) {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.date - b.date;
+    });
+    return list;
+  }
+  function mergeScores(a, b) {
+    var map = {};
+    a.concat(b).forEach(function(s) { map[scoreKey(s)] = s; });
+    var arr = Object.keys(map).map(function(k) { return map[k]; });
+    return sortScores(arr).slice(0, MAX_SCORES);
+  }
+
+  function handleDriveError(err) {
+    var code = err && err.code;
+    var msg;
+    if (code === 'needs_reauth') {
+      msg = "Google Drive muss neu verbunden werden (claude.ai → Einstellungen → Konnektoren).";
+    } else if (code === 'server_not_connected' || code === 'selection_required') {
+      msg = "Google Drive ist nicht verbunden (claude.ai → Einstellungen → Konnektoren).";
+    } else if (code === 'approval_required' || code === 'not_in_manifest' || code === 'consent_required') {
+      msg = "Zugriff auf Google Drive wurde nicht erlaubt.";
+    } else if (code === 'blocked_by_policy') {
+      msg = "Google Drive ist durch eine Richtlinie gesperrt.";
+    } else {
+      msg = "Google Drive nicht erreichbar.";
+    }
+    setSync(msg + " Highscore bleibt vorerst nur auf diesem Gerät.", true, initDrive);
+  }
+
+  function driveSave() {
+    if (!mcp) return;
+    // Erst speichern, wenn der Drive-Stand geladen und zusammengeführt wurde
+    if (!driveReady || saving) { pendingSave = true; return; }
+    saving = true;
+    pendingSave = false;
+    setSync("☁️ Speichere in Google Drive …");
+    ensureSheet(true)
+      .then(function(id) {
+        if (!id) throw { code: 'upstream_error' };
+        return call(SHEETS, 'update_values', { spreadsheetId: id, range: RANGE, values: scoresToRows(scores) });
+      })
+      .then(function() {
+        setSync("☁️ In Google Drive gespeichert (Ordner " + FOLDER_NAME + ")");
+      })
+      .catch(function(err) {
+        handleDriveError(err);
+        driveReady = false; // beim nächsten Versuch zuerst neu laden und zusammenführen
+      })
+      .then(function() {
+        saving = false;
+        if (pendingSave && driveReady) driveSave();
+      });
+  }
+
+  function initDrive() {
+    if (!window.claude || typeof window.claude.use !== 'function') {
+      setSync("Highscore wird auf diesem Gerät gespeichert.");
+      return;
+    }
+    setSync("☁️ Verbinde mit Google Drive …");
+    window.claude.use('mcp').then(function(m) {
+      if (!m) {
+        setSync("Highscore wird auf diesem Gerät gespeichert.");
+        return;
+      }
+      mcp = m;
+      return ensureSheet(false).then(function(id) {
+        if (!id) return [];
+        return call(SHEETS, 'get_values', { spreadsheetId: id, range: RANGE }).then(function(p) {
+          return rowsToScores(p && p.values);
+        });
+      }).then(function(remote) {
+        var merged = mergeScores(scores, remote);
+        var remoteKeys = remote.map(scoreKey).sort().join(',');
+        var mergedKeys = merged.map(scoreKey).sort().join(',');
+        scores = merged;
+        saveScores(scores);
+        renderScores();
+        renderStats();
+        driveReady = true;
+        if (remoteKeys !== mergedKeys || pendingSave) {
+          driveSave();
+        } else {
+          setSync("☁️ Mit Google Drive synchronisiert (Ordner " + FOLDER_NAME + ")");
+        }
+      });
+    }).catch(handleDriveError);
+  }
+
+  function qualifies(points) {
+    if (points <= 0) return false;
+    if (scores.length < MAX_SCORES) return true;
+    return points > scores[scores.length - 1].points;
+  }
+
+  function addScore(name, points, w, f) {
+    var entry = { name: name, points: points, word: w, fails: f, date: Date.now() };
+    scores.push(entry);
+    scores.sort(function(a, b) {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.date - b.date;
+    });
+    scores = scores.slice(0, MAX_SCORES);
+    saveScores(scores);
+    driveSave();
+    return entry;
+  }
+
+  function renderScores(highlight) {
+    hsListEl.innerHTML = "";
+    if (!scores.length) {
+      var empty = document.createElement('div');
+      empty.className = 'hs-empty';
+      empty.textContent = "Noch keine Einträge – gewinne ein Spiel!";
+      hsListEl.appendChild(empty);
+      return;
+    }
+    var medals = ["🥇", "🥈", "🥉"];
+    scores.forEach(function(s, i) {
+      var row = document.createElement('div');
+      row.className = 'hs-row' + (highlight && s.date === highlight.date ? ' new' : '');
+      var rank = document.createElement('div');
+      rank.className = 'hs-rank';
+      rank.textContent = medals[i] || (i + 1) + ".";
+      var name = document.createElement('div');
+      name.className = 'hs-name';
+      name.textContent = s.name;
+      var sub = document.createElement('div');
+      sub.className = 'hs-sub';
+      sub.textContent = s.fails + " Fehler";
+      var pts = document.createElement('div');
+      pts.className = 'hs-points';
+      pts.textContent = s.points;
+      row.appendChild(rank);
+      row.appendChild(name);
+      row.appendChild(sub);
+      row.appendChild(pts);
+      hsListEl.appendChild(row);
+    });
+  }
+
+  function renderStats() {
+    bestScoreEl.textContent = scores.length ? scores[0].points : "–";
+    winCountEl.textContent = stats.wins;
+    playCountEl.textContent = stats.played;
+  }
+
+  function getLastName() {
+    try { return localStorage.getItem('hangman_lastname_v1') || ""; } catch (e) { return ""; }
+  }
+  function setLastName(n) {
+    try { localStorage.setItem('hangman_lastname_v1', n); } catch (e) {}
+  }
+
+  function openNameDialog() {
+    nameInfo.textContent = lastScore + " Punkte (" + fails + " Fehler, Wort: " + lastWord + "). Trag deinen Namen ein:";
+    nameInput.value = getLastName();
+    nameOverlay.hidden = false;
+    setTimeout(function() { nameInput.focus(); nameInput.select(); }, 50);
+  }
+  function closeNameDialog() {
+    nameOverlay.hidden = true;
+  }
+  function submitName() {
+    // Zeichen am Anfang entfernen, die Google Sheets als Formel lesen würde
+    var n = nameInput.value.trim().replace(/^[=+\-@'\s]+/, "");
+    if (!n) n = "Anonym";
+    setLastName(n);
+    var entry = addScore(n, lastScore, lastWord, fails);
+    closeNameDialog();
+    renderScores(entry);
+    renderStats();
+  }
+
+  nameSave.addEventListener('click', submitName);
+  nameSkip.addEventListener('click', closeNameDialog);
+  nameInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitName();
+  });
+
+  // Zufällige Reihenfolge ohne Wiederholung, bis alle Wörter einmal dran waren
+  var wordBag = [];
+  function pickWord() {
+    if (!wordBag.length) {
+      wordBag = WORDS.slice();
+      for (var i = wordBag.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = wordBag[i]; wordBag[i] = wordBag[j]; wordBag[j] = tmp;
+      }
+    }
+    return wordBag.pop();
+  }
+
+  function buildKeyboard() {
+    keyboard.innerHTML = "";
+    LETTERS.forEach(function(letter) {
+      var btn = document.createElement('div');
+      btn.className = 'key';
+      btn.textContent = letter;
+      btn.setAttribute('data-letter', letter);
+      btn.addEventListener('click', function() { guess(letter); });
+      keyboard.appendChild(btn);
+    });
+  }
+
+  function updateGallows() {
+    gallowsParts.forEach(function(id, i) {
+      document.getElementById(id).style.opacity = (i < fails) ? 1 : 0;
+    });
+  }
+
+  function render() {
+    wordDisplay.innerHTML = "";
+    var displayWord = word.split("").map(function(ch) {
+      return guessed.indexOf(ch) !== -1 ? ch : "_";
+    });
+    displayWord.forEach(function(ch) {
+      var span = document.createElement('div');
+      span.className = 'slot' + (ch !== '_' ? ' filled' : '');
+      span.textContent = ch === '_' ? '\u00A0' : ch;
+      wordDisplay.appendChild(span);
+    });
+
+    var wrong = guessed.filter(function(l) { return word.indexOf(l) === -1; });
+    wrongLettersEl.textContent = wrong.length ? ("Falsch: " + wrong.join(", ")) : "";
+
+    failsText.textContent = fails + " / " + MAX_FAILS + " Fehler";
+    updateGallows();
+
+    Array.prototype.forEach.call(keyboard.children, function(btn) {
+      var l = btn.getAttribute('data-letter');
+      btn.classList.remove('correct', 'wrong', 'disabled');
+      if (guessed.indexOf(l) !== -1) {
+        btn.classList.add(word.indexOf(l) !== -1 ? 'correct' : 'wrong', 'disabled');
+      }
+      if (over) btn.classList.add('disabled');
+    });
+  }
+
+  function checkEnd() {
+    var isWin = word.split("").every(function(ch) { return guessed.indexOf(ch) !== -1; });
+    if (isWin) {
+      over = true;
+      lastScore = (MAX_FAILS - fails) * 100 + word.length * 10;
+      lastWord = word;
+      statusText.textContent = "Gewonnen! Das Wort war " + word + ". (" + lastScore + " Punkte)";
+      statusText.className = "status win";
+      stats.played += 1;
+      stats.wins += 1;
+      saveStats(stats);
+      renderStats();
+      return true;
+    }
+    if (fails >= MAX_FAILS) {
+      over = true;
+      statusText.textContent = "Verloren! Das Wort war " + word + ".";
+      statusText.className = "status lose";
+      stats.played += 1;
+      saveStats(stats);
+      renderStats();
+      return true;
+    }
+    return false;
+  }
+
+  function guess(letter) {
+    if (over || guessed.indexOf(letter) !== -1) return;
+    guessed.push(letter);
+    var isCorrect = word.indexOf(letter) !== -1;
+    if (!isCorrect) fails += 1;
+    if (isCorrect) playCorrectSound(); else playWrongSound();
+    render();
+    var ended = checkEnd();
+    if (ended) {
+      setTimeout(function() {
+        var won = word.split("").every(function(ch) { return guessed.indexOf(ch) !== -1; });
+        if (won) playWinSound(); else playLoseSound();
+      }, 250);
+      if (isWinNow() && qualifies(lastScore)) {
+        setTimeout(openNameDialog, 1100);
+      }
+    }
+  }
+
+  function isWinNow() {
+    return word.split("").every(function(ch) { return guessed.indexOf(ch) !== -1; });
+  }
+
+  function newGame() {
+    word = pickWord();
+    guessed = [];
+    fails = 0;
+    over = false;
+    statusText.textContent = "";
+    statusText.className = "status";
+    render();
+  }
+
+  newGameBtn.addEventListener('click', newGame);
+  buildKeyboard();
+  renderScores();
+  renderStats();
+  newGame();
+  initDrive();
+})();
+</script>
+</body>
+</html>
